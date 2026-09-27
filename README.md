@@ -1,0 +1,2 @@
+# pomimi
+Simple Pomodoro Timer

@@ -1,3 +1,4 @@
+# Pomimi
 Pomimi is a free, open-source, minimalistic and cute Pomodoro Timer. No ads. No in-app purchases. **Ever**. This is an app made with love and care by a sole developer tired of micro-transactions. If you *insist* on funding this project there will be a Kofi linked further down (thanks!).
 ### Mission Statement
 Pomimi comes from the sentiment that education should be free for all, even its tools. As a student, finding a Pomodoro which was completely free (and not horrible to look at) was practically impossible. If the app was beautiful, it had paid options; if the app was practical, it was ugly. Both? Don't even think about it. Pomimi seeks to be visually appealing and completely functional for no monetary gain. I thought about including ads for cosmetics but even then it felt scummy. Pomimi will always remain completely free. All possible monetary gain will come from donations the end user will have to seek out to find. 

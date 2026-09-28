@@ -10,7 +10,7 @@ import AppleProductTypes
 let package = Package(
     name: "Pomimi",
     platforms: [
-        .iOS("18.8")
+        .iOS("26.0")
     ],
     products: [
         .iOSApplication(

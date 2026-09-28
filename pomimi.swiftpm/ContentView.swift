@@ -52,11 +52,22 @@ struct ContentView: View {
     
     var body: some View {
         ZStack {
+            // Background to guarantee full-screen canvas in both light and dark mode
+            Color(uiColor: .systemBackground)
+                .ignoresSafeArea()
+            
+            // Main content
             VStack {
+                // Header pinned cleanly below the dynamic island / status bar
+                Text("pomimi")
+                    .font(.system(size: 26, weight: .medium, design: .rounded))
+                    .foregroundColor(.primary)
+                    .padding(.top, 16)
+                
                 Spacer()
                 
                 // Center Cluster
-                VStack(spacing: 16) {
+                VStack(spacing: 18) {
                     
                     // Tag Selector Pill Button
                     Button {
@@ -69,18 +80,18 @@ struct ContentView: View {
                             .padding(.vertical, 6)
                             .background(
                                 Capsule()
-                                    .strokeBorder(Color.primary.opacity(0.3), lineWidth: 1.5)
+                                    .strokeBorder(Color.primary.opacity(0.25), lineWidth: 1.5)
                             )
                     }
                     .buttonStyle(.plain)
                     
                     // Countdown display
                     Text(String(format: "%02d:%02d", minutes, seconds))
-                        .font(.system(size: 68, weight: .bold, design: .rounded))
+                        .font(.system(size: 72, weight: .bold, design: .rounded))
                         .monospacedDigit()
                     
                     // Play/Pause & Reset Controls
-                    HStack(spacing: 28) {
+                    HStack(spacing: 32) {
                         Button {
                             isRunning.toggle()
                         } label: {
@@ -99,7 +110,7 @@ struct ContentView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .padding(.top, 4)
+                    .padding(.top, 6)
                     
                     // Study / Break Mode List
                     VStack(spacing: 8) {
@@ -124,18 +135,13 @@ struct ContentView: View {
                             .buttonStyle(.plain)
                         }
                     }
-                    .padding(.top, 8)
+                    .padding(.top, 10)
                 }
                 
                 Spacer()
+                Spacer() // Keeps the visual weight slightly balanced relative to home indicator
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .overlay(alignment: .top) {
-            Text("pomimi")
-                .font(.system(size: 26, weight: .medium, design: .rounded))
-                .foregroundColor(.primary)
-                .padding(.top, 8)
         }
         .onReceive(timer) { _ in
             guard isRunning else { return }
@@ -147,7 +153,6 @@ struct ContentView: View {
                 triggerTimerCompletionFeedback()
             }
         }
-        // Tag Menu pop-up sheet
         .sheet(isPresented: $showTagSelector) {
             TagSelectorSheet(
                 tags: tags,
@@ -169,7 +174,6 @@ struct ContentView: View {
             )
             .presentationDetents([.medium])
         }
-        // Add Tag Input sheet
         .sheet(isPresented: $showAddTagSheet) {
             AddTagSheet { newTag in
                 tags.append(newTag)
@@ -192,11 +196,10 @@ struct ContentView: View {
     }
     
     private func deleteTag(_ tag: PomodoroTag) {
-        guard tag.name != "default" else { return } // Always protect the default tag
+        guard tag.name != "default" else { return }
         
         tags.removeAll { $0.id == tag.id }
         
-        // If the deleted tag was the active one, fall back safely to default
         if selectedTag.id == tag.id {
             if let defaultTag = tags.first(where: { $0.name == "default" }) {
                 selectedTag = defaultTag
@@ -224,7 +227,6 @@ struct TagSelectorSheet: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            // Underlined "tags" header
             Text("tags")
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .underline()
@@ -236,7 +238,6 @@ struct TagSelectorSheet: View {
                     let isDefault = tag.name == "default"
                     
                     HStack(spacing: 10) {
-                        // Tag selection button
                         Button {
                             onSelectTag(tag)
                         } label: {
@@ -254,7 +255,6 @@ struct TagSelectorSheet: View {
                         }
                         .buttonStyle(.plain)
                         
-                        // Delete icon for non-default tags only
                         if !isDefault {
                             Button {
                                 onDeleteTag(tag)
@@ -268,7 +268,6 @@ struct TagSelectorSheet: View {
                     }
                 }
                 
-                // Add Tag button
                 Button {
                     onAddNewTagTapped()
                 } label: {

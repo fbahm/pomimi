@@ -7,45 +7,53 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-14
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Locate Swift Package
-        id: find_pkg
+      - name: Inspect and Build App
         run: |
-          # Find directory containing Package.swift
+          # 1. Locate the directory containing Package.swift
           PKG_DIR=$(find . -name "Package.swift" -not -path "*/.*" -exec dirname {} \; | head -n 1)
           if [ -z "$PKG_DIR" ]; then
-            echo "::error::Could not find Package.swift in the repository."
+            echo "::error::Could not find Package.swift"
             exit 1
           fi
-          echo "pkg_dir=$PKG_DIR" >> "$GITHUB_OUTPUT"
-          echo "Found package at: $PKG_DIR"
+          echo "Using Package at: $PKG_DIR"
 
-      - name: Build App
-        run: |
-          PKG_DIR="${{ steps.find_pkg.outputs.pkg_dir }}"
-          xcodebuild -package-path "$PKG_DIR" \
+          # 2. Get the default scheme name from xcodebuild
+          SCHEME=$(xcodebuild -list -package-path "$PKG_DIR" -json | python3 -c "import sys, json; data=json.load(sys.stdin); schemes=data.get('project', {}).get('schemes', []) or data.get('workspace', {}).get('schemes', []); print(schemes[0] if schemes else '')")
+          
+          if [ -z "$SCHEME" ]; then
+            # Fallback if JSON scheme parsing is blank
+            SCHEME="pomimi"
+          fi
+          echo "Target Scheme: $SCHEME"
+
+          # 3. Build for generic iOS device without code signing
+          xcodebuild build \
+            -package-path "$PKG_DIR" \
+            -scheme "$SCHEME" \
             -destination "generic/platform=iOS" \
             -configuration Release \
             CODE_SIGNING_ALLOWED=NO \
-            build
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
 
       - name: Package Unsigned IPA
         run: |
           mkdir -p build/Payload
           APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" -type d | head -n 1)
           if [ -z "$APP_PATH" ]; then
-            echo "::error::Build succeeded but no .app was found."
+            echo "::error::Build finished but no .app bundle was found."
             exit 1
           fi
-          echo "Found compiled app at: $APP_PATH"
+          echo "Packaging: $APP_PATH"
           cp -r "$APP_PATH" build/Payload/
           cd build && zip -r Pomimi.ipa Payload/
 
-      - name: Upload IPA to Release Artifacts
+      - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-ipa

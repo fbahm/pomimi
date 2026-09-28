@@ -21,14 +21,10 @@ let package = Package(
             appIcon: .placeholder(icon: .smiley),
             accentColor: .presetColor(.orange),
             supportedDeviceFamilies: [
-                .phone,
-                .pad
+                .phone
             ],
             supportedInterfaceOrientations: [
-                .portrait,
-                .landscapeRight,
-                .landscapeLeft,
-                .portraitUpsideDown(.when(deviceFamilies: [.pad]))
+                .portrait
             ]
         )
     ],

@@ -52,13 +52,12 @@ struct ContentView: View {
     
     var body: some View {
         ZStack {
-            // Background to guarantee full-screen canvas in both light and dark mode
+            // Full screen background matching system color
             Color(uiColor: .systemBackground)
                 .ignoresSafeArea()
             
-            // Main content
             VStack {
-                // Header pinned cleanly below the dynamic island / status bar
+                // Header pinned cleanly below dynamic island / notch
                 Text("pomimi")
                     .font(.system(size: 26, weight: .medium, design: .rounded))
                     .foregroundColor(.primary)
@@ -139,7 +138,7 @@ struct ContentView: View {
                 }
                 
                 Spacer()
-                Spacer() // Keeps the visual weight slightly balanced relative to home indicator
+                Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -153,6 +152,7 @@ struct ContentView: View {
                 triggerTimerCompletionFeedback()
             }
         }
+        // Tag selector sheet
         .sheet(isPresented: $showTagSelector) {
             TagSelectorSheet(
                 tags: tags,
@@ -174,13 +174,14 @@ struct ContentView: View {
             )
             .presentationDetents([.medium])
         }
+        // Add tag input sheet (expands up to .large when typing)
         .sheet(isPresented: $showAddTagSheet) {
             AddTagSheet { newTag in
                 tags.append(newTag)
                 selectedTag = newTag
                 resetTimer()
             }
-            .presentationDetents([.medium])
+            .presentationDetents([.medium, .large])
         }
     }
     
@@ -217,7 +218,7 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Tag Selector Pop-Up
+// MARK: - Tag Selector Pop-Up Sheet
 struct TagSelectorSheet: View {
     let tags: [PomodoroTag]
     @Binding var selectedTag: PomodoroTag
@@ -287,7 +288,7 @@ struct TagSelectorSheet: View {
     }
 }
 
-// MARK: - Add Tag Sheet
+// MARK: - Add Tag Sheet (Custom Header & Keyboard Scroll-Safe)
 struct AddTagSheet: View {
     @Environment(\.dismiss) private var dismiss
     
@@ -310,13 +311,44 @@ struct AddTagSheet: View {
     }
     
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 24) {
-                VStack(spacing: 16) {
+        VStack(spacing: 0) {
+            // Clean custom top bar without overlapping navigation titles
+            HStack {
+                Button("Cancel") {
+                    dismiss()
+                }
+                .foregroundColor(.secondary)
+                
+                Spacer()
+                
+                Text("New Tag")
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                
+                Spacer()
+                
+                Button("Save") {
+                    let newTag = PomodoroTag(
+                        name: name.trimmingCharacters(in: .whitespaces),
+                        workMinutes: workMinutes,
+                        breakMinutes: breakMinutes
+                    )
+                    onSave(newTag)
+                    dismiss()
+                }
+                .fontWeight(.bold)
+                .disabled(!isValid)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 12)
+            
+            ScrollView {
+                VStack(spacing: 20) {
                     TextField("tag name (e.g. coding)", text: $name)
                         .textFieldStyle(.roundedBorder)
+                        .padding(.top, 8)
                     
-                    HStack {
+                    HStack(spacing: 16) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("work (mins)")
                                 .font(.system(size: 14, weight: .medium, design: .rounded))
@@ -335,46 +367,23 @@ struct AddTagSheet: View {
                                 .textFieldStyle(.roundedBorder)
                         }
                     }
-                }
-                .padding(.top, 16)
-                
-                VStack(spacing: 6) {
-                    Text("preview")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundColor(.secondary)
                     
-                    Text("\(name.isEmpty ? "untitled" : name) • \(workMinutes)m work / \(breakMinutes)m break")
-                        .font(.system(size: 16, weight: .medium, design: .rounded))
-                        .foregroundColor(.primary)
-                }
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(Color.secondary.opacity(0.1))
-                .cornerRadius(12)
-                
-                Spacer()
-            }
-            .padding(.horizontal, 24)
-            .navigationTitle("New Tag")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
+                    // Live preview card
+                    VStack(spacing: 6) {
+                        Text("preview")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundColor(.secondary)
+                        
+                        Text("\(name.isEmpty ? "untitled" : name) • \(workMinutes)m work / \(breakMinutes)m break")
+                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .foregroundColor(.primary)
                     }
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.secondary.opacity(0.08))
+                    .cornerRadius(12)
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        let newTag = PomodoroTag(
-                            name: name.trimmingCharacters(in: .whitespaces),
-                            workMinutes: workMinutes,
-                            breakMinutes: breakMinutes
-                        )
-                        onSave(newTag)
-                        dismiss()
-                    }
-                    .disabled(!isValid)
-                }
+                .padding(.horizontal, 20)
             }
         }
     }

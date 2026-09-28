@@ -15,12 +15,10 @@ enum TimerMode: String, CaseIterable {
     case breakTime = "break"
 }
 
-// Single default instance so the IDs match everywhere
 private let initialDefaultTag = PomodoroTag(name: "default", workMinutes: 25, breakMinutes: 5)
 
 // MARK: - Main View
 struct ContentView: View {
-    // Both share the exact same tag reference and UUID
     @State private var tags: [PomodoroTag] = [initialDefaultTag]
     @State private var selectedTag: PomodoroTag = initialDefaultTag
     
@@ -29,7 +27,7 @@ struct ContentView: View {
     @State private var timeRemaining: Int = 25 * 60
     @State private var isRunning: Bool = false
     
-    // Sheet presentations
+    // Presentation states
     @State private var showTagSelector: Bool = false
     @State private var showAddTagSheet: Bool = false
     
@@ -133,14 +131,12 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        // Top header title
         .overlay(alignment: .top) {
             Text("pomimi")
                 .font(.system(size: 26, weight: .medium, design: .rounded))
                 .foregroundColor(.primary)
                 .padding(.top, 8)
         }
-        // Timer countdown tick
         .onReceive(timer) { _ in
             guard isRunning else { return }
             
@@ -160,6 +156,9 @@ struct ContentView: View {
                     selectedTag = tag
                     resetTimer()
                     showTagSelector = false
+                },
+                onDeleteTag: { tagToDelete in
+                    deleteTag(tagToDelete)
                 },
                 onAddNewTagTapped: {
                     showTagSelector = false
@@ -192,6 +191,20 @@ struct ContentView: View {
         timeRemaining = currentModeDuration
     }
     
+    private func deleteTag(_ tag: PomodoroTag) {
+        guard tag.name != "default" else { return } // Always protect the default tag
+        
+        tags.removeAll { $0.id == tag.id }
+        
+        // If the deleted tag was the active one, fall back safely to default
+        if selectedTag.id == tag.id {
+            if let defaultTag = tags.first(where: { $0.name == "default" }) {
+                selectedTag = defaultTag
+            }
+            resetTimer()
+        }
+    }
+    
     private func triggerTimerCompletionFeedback() {
         let generator = UINotificationFeedbackGenerator()
         generator.prepare()
@@ -206,36 +219,56 @@ struct TagSelectorSheet: View {
     let tags: [PomodoroTag]
     @Binding var selectedTag: PomodoroTag
     let onSelectTag: (PomodoroTag) -> Void
+    let onDeleteTag: (PomodoroTag) -> Void
     let onAddNewTagTapped: () -> Void
     
     var body: some View {
         VStack(spacing: 20) {
+            // Underlined "tags" header
             Text("tags")
                 .font(.system(size: 20, weight: .bold, design: .rounded))
+                .underline()
                 .padding(.top, 24)
             
             VStack(spacing: 12) {
                 ForEach(tags) { tag in
                     let isSelected = selectedTag.id == tag.id
+                    let isDefault = tag.name == "default"
                     
-                    Button {
-                        onSelectTag(tag)
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text(tag.name)
-                                .font(.system(size: 22, weight: isSelected ? .bold : .regular, design: .rounded))
-                                .italic(!isSelected)
-                            
-                            if isSelected {
-                                Text("•")
-                                    .font(.system(size: 20, weight: .bold))
+                    HStack(spacing: 10) {
+                        // Tag selection button
+                        Button {
+                            onSelectTag(tag)
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text(tag.name)
+                                    .font(.system(size: 22, weight: isSelected ? .bold : .regular, design: .rounded))
+                                    .italic(!isSelected)
+                                
+                                if isSelected {
+                                    Text("•")
+                                        .font(.system(size: 20, weight: .bold))
+                                }
                             }
+                            .foregroundColor(isSelected ? .primary : .secondary.opacity(0.55))
                         }
-                        .foregroundColor(isSelected ? .primary : .secondary.opacity(0.55))
+                        .buttonStyle(.plain)
+                        
+                        // Delete icon for non-default tags only
+                        if !isDefault {
+                            Button {
+                                onDeleteTag(tag)
+                            } label: {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.secondary.opacity(0.4))
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
-                    .buttonStyle(.plain)
                 }
                 
+                // Add Tag button
                 Button {
                     onAddNewTagTapped()
                 } label: {

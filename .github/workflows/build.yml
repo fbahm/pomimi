@@ -12,31 +12,12 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Inspect and Build App
+      - name: Build App
         run: |
-          # 1. Locate the directory containing Package.swift
-          PKG_DIR=$(find . -name "Package.swift" -not -path "*/.*" -exec dirname {} \; | head -n 1)
-          if [ -z "$PKG_DIR" ]; then
-            echo "::error::Could not find Package.swift"
-            exit 1
-          fi
-          echo "Using Package at: $PKG_DIR"
-
-          # 2. Get the default scheme name from xcodebuild
-          SCHEME=$(xcodebuild -list -package-path "$PKG_DIR" -json | python3 -c "import sys, json; data=json.load(sys.stdin); schemes=data.get('project', {}).get('schemes', []) or data.get('workspace', {}).get('schemes', []); print(schemes[0] if schemes else '')")
-          
-          if [ -z "$SCHEME" ]; then
-            # Fallback if JSON scheme parsing is blank
-            SCHEME="pomimi"
-          fi
-          echo "Target Scheme: $SCHEME"
-
-          # 3. Build for generic iOS device without code signing
           xcodebuild build \
-            -package-path "$PKG_DIR" \
-            -scheme "$SCHEME" \
+            -package-path "code/pomimi.swiftpm" \
+            -scheme "pomimi" \
             -destination "generic/platform=iOS" \
-            -configuration Release \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY=""
@@ -45,11 +26,12 @@ jobs:
         run: |
           mkdir -p build/Payload
           APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" -type d | head -n 1)
+          
           if [ -z "$APP_PATH" ]; then
-            echo "::error::Build finished but no .app bundle was found."
+            echo "::error::Build finished but no .app was found."
             exit 1
           fi
-          echo "Packaging: $APP_PATH"
+          
           cp -r "$APP_PATH" build/Payload/
           cd build && zip -r Pomimi.ipa Payload/
 

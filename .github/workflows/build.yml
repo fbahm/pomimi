@@ -17,6 +17,7 @@ jobs:
           cd code/pomimi.swiftpm
           xcodebuild -scheme "Pomimi" \
             -destination "generic/platform=iOS" \
+            -configuration Release \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
@@ -25,15 +26,18 @@ jobs:
       - name: Package Unsigned IPA
         run: |
           mkdir -p build/Payload
-          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" -type d | head -n 1)
+          
+          # Strictly find the final compiled app, ignoring intermediate folders
+          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -type d -path "*/Build/Products/Release-iphoneos/*.app" | head -n 1)
           
           if [ -z "$APP_PATH" ]; then
-            echo "::error::Build finished but no .app was found."
+            echo "::error::Build finished but no valid .app was found in Products."
             exit 1
           fi
           
-          cp -r "$APP_PATH" build/Payload/
-          cd build && zip -r Pomimi.ipa Payload/
+          # Use -a to preserve attributes and -y to preserve symlinks
+          cp -a "$APP_PATH" build/Payload/
+          cd build && zip -ry Pomimi.ipa Payload/
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4

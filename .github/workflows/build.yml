@@ -12,48 +12,61 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Build Archive
+      - name: Build App for iOS
         run: |
           cd code/pomimi.swiftpm
-          xcodebuild archive \
+          xcodebuild build \
             -scheme "Pomimi" \
             -destination "generic/platform=iOS" \
-            -archivePath "../../Pomimi.xcarchive" \
+            -configuration Release \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY=""
 
-      - name: Package Unsigned IPA
+      - name: Package strict IPA
         run: |
-          mkdir -p Payload
-          APP_PATH=$(find Pomimi.xcarchive/Products/Applications -name "*.app" | head -n 1)
+          # 1. Find the compiled app
+          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -type d -path "*/Build/Products/Release-iphoneos/*.app" | head -n 1)
           
           if [ -z "$APP_PATH" ]; then
-            echo "::error::Archive finished but no .app was found."
+            echo "::error::Build finished but no .app was found."
             exit 1
           fi
           
-          # Get the exact name of the compiled executable to prevent mismatch errors
+          echo "Found compiled app at: $APP_PATH"
+          
+          # 2. Print what is actually inside the app to the GitHub logs for debugging
+          echo "--- APP BUNDLE CONTENTS ---"
+          ls -la "$APP_PATH"
+          echo "---------------------------"
+
+          # 3. Get exact executable name
           EXEC_NAME=$(basename "$APP_PATH" .app)
           
-          # Write Info.plist line-by-line to guarantee zero blank spaces breaking the XML
-          if [ ! -f "$APP_PATH/Info.plist" ]; then
-            echo '<?xml version="1.0" encoding="UTF-8"?>' > "$APP_PATH/Info.plist"
-            echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> "$APP_PATH/Info.plist"
-            echo '<plist version="1.0"><dict>' >> "$APP_PATH/Info.plist"
-            echo '<key>CFBundleExecutable</key><string>'$EXEC_NAME'</string>' >> "$APP_PATH/Info.plist"
-            echo '<key>CFBundleIdentifier</key><string>com.local.pomimi</string>' >> "$APP_PATH/Info.plist"
-            echo '<key>CFBundleName</key><string>'$EXEC_NAME'</string>' >> "$APP_PATH/Info.plist"
-            echo '<key>CFBundleVersion</key><string>1</string>' >> "$APP_PATH/Info.plist"
-            echo '<key>CFBundleShortVersionString</key><string>1.0</string>' >> "$APP_PATH/Info.plist"
-            echo '<key>CFBundlePackageType</key><string>APPL</string>' >> "$APP_PATH/Info.plist"
-            echo '<key>LSRequiresIPhoneOS</key><true/>' >> "$APP_PATH/Info.plist"
-            echo '<key>MinimumOSVersion</key><string>16.0</string>' >> "$APP_PATH/Info.plist"
-            echo '</dict></plist>' >> "$APP_PATH/Info.plist"
-          fi
-          
+          # 4. Inject a strict Info.plist
+          echo '<?xml version="1.0" encoding="UTF-8"?>' > "$APP_PATH/Info.plist"
+          echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> "$APP_PATH/Info.plist"
+          echo '<plist version="1.0"><dict>' >> "$APP_PATH/Info.plist"
+          echo '<key>CFBundleExecutable</key><string>'$EXEC_NAME'</string>' >> "$APP_PATH/Info.plist"
+          echo '<key>CFBundleIdentifier</key><string>com.local.pomimi</string>' >> "$APP_PATH/Info.plist"
+          echo '<key>CFBundleName</key><string>'$EXEC_NAME'</string>' >> "$APP_PATH/Info.plist"
+          echo '<key>CFBundleVersion</key><string>1</string>' >> "$APP_PATH/Info.plist"
+          echo '<key>CFBundleShortVersionString</key><string>1.0</string>' >> "$APP_PATH/Info.plist"
+          echo '<key>CFBundlePackageType</key><string>APPL</string>' >> "$APP_PATH/Info.plist"
+          echo '<key>LSRequiresIPhoneOS</key><true/>' >> "$APP_PATH/Info.plist"
+          echo '<key>MinimumOSVersion</key><string>16.0</string>' >> "$APP_PATH/Info.plist"
+          echo '</dict></plist>' >> "$APP_PATH/Info.plist"
+
+          # 5. Use Python to create a mathematically perfect IPA structure (Payload/App.app)
+          mkdir -p Payload
           cp -a "$APP_PATH" Payload/
-          zip -ry Pomimi.ipa Payload/
+          
+          python3 -c "
+import shutil
+# Creates Pomimi.zip (which we rename to .ipa) containing the Payload folder
+shutil.make_archive('Pomimi', 'zip', '.', 'Payload')
+"
+          mv Pomimi.zip Pomimi.ipa
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4

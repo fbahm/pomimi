@@ -1,4 +1,6 @@
 import SwiftUI
+import AudioToolbox
+import UIKit
 
 struct ContentView: View {
     @State private var timeRemaining: Int = 1500
@@ -48,5 +50,13 @@ struct ContentView: View {
             }
         }
     }
+    
+    private func triggerTimeCompleteFB(){
+        let generator = UINotificationFeedbackGenerator()
+        generator.prepare()
+        generator.notificationOccurred(.success)
+        AudioServicesPlaySystemSound(1005)
+    }
+    
 }
 

@@ -1,69 +1,81 @@
-name: Build IPA
+name: Build unsigned IPA
 
 on:
+  workflow_dispatch:        # lets you run it manually from the Actions tab
   push:
-    branches: [ "main" ]
-  workflow_dispatch:
+    branches: [main]
+
+env:
+  # --- EDIT THESE ---
+  PROJECT: YourApp.xcodeproj        # or set WORKSPACE below instead
+  WORKSPACE: ""                     # e.g. YourApp.xcworkspace (leave empty if not used)
+  SCHEME: YourApp
+  CONFIGURATION: Release
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build Archive
+      - name: Show Xcode version and schemes
         run: |
-          cd code/pomimi.swiftpm
-          xcodebuild archive \
-            -scheme "Pomimi" \
+          xcodebuild -version
+          if [ -n "$WORKSPACE" ]; then
+            xcodebuild -list -workspace "$WORKSPACE"
+          else
+            xcodebuild -list -project "$PROJECT"
+          fi
+
+      # If you use CocoaPods, uncomment:
+      # - name: Install Pods
+      #   run: pod install
+
+      - name: Build (no code signing)
+        run: |
+          if [ -n "$WORKSPACE" ]; then
+            TARGET_FLAG="-workspace $WORKSPACE"
+          else
+            TARGET_FLAG="-project $PROJECT"
+          fi
+          xcodebuild $TARGET_FLAG \
+            -scheme "$SCHEME" \
+            -configuration "$CONFIGURATION" \
+            -sdk iphoneos \
             -destination "generic/platform=iOS" \
-            -archivePath "../../Pomimi.xcarchive" \
+            -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=""
+            CODE_SIGN_IDENTITY="" \
+            clean build
 
-      - name: Package Unsigned IPA
+      - name: Package IPA
         run: |
+          APP_PATH=$(find build/Build/Products -maxdepth 2 -name "*.app" -type d | head -n 1)
+          echo "Found app: $APP_PATH"
           mkdir -p Payload
-          APP_PATH=$(find Pomimi.xcarchive/Products/Applications -name "*.app" | head -n 1)
-          
-          if [ -z "$APP_PATH" ]; then
-            echo "::error::Archive finished but no .app was found."
-            exit 1
-          fi
-          
-          # Inject Info.plist safely using echo instead of a bash heredoc
-          if [ ! -f "$APP_PATH/Info.plist" ]; then
-            echo '<?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-            <plist version="1.0">
-            <dict>
-                <key>CFBundleExecutable</key>
-                <string>Pomimi</string>
-                <key>CFBundleIdentifier</key>
-                <string>com.local.Pomimi</string>
-                <key>CFBundleName</key>
-                <string>Pomimi</string>
-                <key>CFBundleVersion</key>
-                <string>1</string>
-                <key>CFBundleShortVersionString</key>
-                <string>1.0</string>
-                <key>CFBundlePackageType</key>
-                <string>APPL</string>
-                <key>LSRequiresIPhoneOS</key>
-                <true/>
-                <key>MinimumOSVersion</key>
-                <string>16.0</string>
-            </dict>
-            </plist>' > "$APP_PATH/Info.plist"
-          fi
-          
-          cp -a "$APP_PATH" Payload/
-          zip -ry Pomimi.ipa Payload/
+          cp -r "$APP_PATH" Payload/
+          zip -qr "${SCHEME}-unsigned.ipa" Payload
 
-      - name: Upload IPA Artifact
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: app-ipa
-          path: Pomimi.ipa
+          name: ${{ env.SCHEME }}-unsigned-ipa
+          path: ${{ env.SCHEME }}-unsigned.ipa
+          if-no-files-found: error
+
+# ---------------------------------------------------------------
+# FLUTTER? Replace the "Build" step with these two steps:
+#
+#      - uses: subosito/flutter-action@v2
+#        with:
+#          channel: stable
+#      - run: flutter build ios --release --no-codesign
+#
+# and change the app lookup in "Package IPA" to:
+#      APP_PATH=build/ios/iphoneos/Runner.app
+#
+# REACT NATIVE? Run `npm ci` and `cd ios && pod install` first,
+# then use the native xcodebuild step above with your .xcworkspace.
+# ---------------------------------------------------------------

@@ -4,6 +4,8 @@ struct ContentView: View {
     @State private var timeRemaining: Int = 1500
     @State private var isRunning: Bool = false
     
+    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    
     var minutes: Int {
         timeRemaining / 60
     }
@@ -21,13 +23,30 @@ struct ContentView: View {
             Text(String(format: "%02d:%02d", minutes, seconds))
                 .font(.system(size: 64, weight: .bold, design: .monospaced))
             
-            Button(isRunning ? "Pause" : "Start") {
-                isRunning.toggle()
+            HStack(spacing: 16){
+                Button(isRunning ? "Pause" : "Start"){
+                    isRunning.toggle()
+                }
+                .buttonStyle(.borderedProminent)
+                
+                Button("Reset"){
+                    isRunning = false
+                    timeRemaining = 1500
+                }
+                .buttonStyle(.bordered)
             }
             .font(.title2)
-            .buttonStyle(.borderedProminent)
         }
         .padding()
+        .onReceive(timer){_ in 
+            guard isRunning else { return }
+            
+            if timeRemaining > 0 {
+                timeRemaining -= 1
+            } else {
+                isRunning = false
+            }
+        }
     }
 }
 

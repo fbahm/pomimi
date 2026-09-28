@@ -3,12 +3,12 @@ import AudioToolbox
 import UIKit
 
 enum TimerMode: String, CaseIterable {
-    case work = "Work"
-    case breakTime = "Break"
+    case study = "study"
+    case breakTime = "break"
     
     var duration: Int {
         switch self {
-        case .work:
+        case .study:
             return 25 * 60
         case .breakTime:
             return 5 * 60
@@ -17,22 +17,11 @@ enum TimerMode: String, CaseIterable {
 }
 
 struct ContentView: View {
-    @State private var selectedMode: TimerMode = .work
-    @State private var timeRemaining: Int = TimerMode.work.duration
+    @State private var selectedMode: TimerMode = .study
+    @State private var timeRemaining: Int = TimerMode.study.duration
     @State private var isRunning: Bool = false
     
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
-    
-    // Custom binding that triggers switchMode automatically whenever a tab is tapped
-    private var modeBinding: Binding<TimerMode> {
-        Binding(
-            get: { selectedMode },
-            set: { newMode in
-                selectedMode = newMode
-                switchMode(to: newMode)
-            }
-        )
-    }
     
     var minutes: Int {
         timeRemaining / 60
@@ -43,39 +32,75 @@ struct ContentView: View {
     }
     
     var body: some View {
-        VStack(spacing: 24) {
-            Text("Pomimi")
-                .font(.largeTitle)
-                .bold()
-            
-            // Picker binds directly to modeBinding
-            Picker("Mode", selection: modeBinding) {
-                ForEach(TimerMode.allCases, id: \.self) { mode in
-                    Text(mode.rawValue).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 32)
-            
-            // Timer Display
-            Text(String(format: "%02d:%02d", minutes, seconds))
-                .font(.system(size: 64, weight: .bold, design: .monospaced))
-            
-            // Controls
-            HStack(spacing: 16) {
-                Button(isRunning ? "Pause" : "Start") {
-                    isRunning.toggle()
-                }
-                .buttonStyle(.borderedProminent)
+        ZStack {
+            // Main content centered vertically and horizontally
+            VStack {
+                Spacer()
                 
-                Button("Reset") {
-                    resetTimer()
+                // Center Stack: Timer, Controls, and Modes
+                VStack(spacing: 22) {
+                    // Countdown display
+                    Text(String(format: "%02d:%02d", minutes, seconds))
+                        .font(.system(size: 68, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                    
+                    // Controls: Play/Pause and Reset loop icon
+                    HStack(spacing: 28) {
+                        Button {
+                            isRunning.toggle()
+                        } label: {
+                            Image(systemName: isRunning ? "pause.fill" : "play.fill")
+                                .font(.system(size: 28))
+                                .foregroundColor(.primary)
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Button {
+                            resetTimer()
+                        } label: {
+                            Image(systemName: "arrow.counterclockwise")
+                                .font(.system(size: 24, weight: .medium))
+                                .foregroundColor(.primary.opacity(0.8))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    
+                    // Modes list
+                    VStack(spacing: 8) {
+                        ForEach(TimerMode.allCases, id: \.self) { mode in
+                            let isSelected = selectedMode == mode
+                            
+                            Button {
+                                switchMode(to: mode)
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Text(mode.rawValue)
+                                        .font(.system(size: 22, weight: isSelected ? .semibold : .regular, design: .rounded))
+                                        .italic(!isSelected)
+                                    
+                                    if isSelected {
+                                        Text("•")
+                                            .font(.system(size: 18, weight: .bold))
+                                    }
+                                }
+                                .foregroundColor(isSelected ? .primary : .secondary.opacity(0.55))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.top, 10)
                 }
-                .buttonStyle(.bordered)
+                
+                Spacer()
             }
-            .font(.title2)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding()
+        .overlay(alignment: .top) {
+            Text("pomimi")
+                .font(.system(size: 26, weight: .medium, design: .rounded))
+                .foregroundColor(.primary)
+                .padding(.top, 8)
+        }
         .onReceive(timer) { _ in
             guard isRunning else { return }
             
@@ -90,8 +115,8 @@ struct ContentView: View {
     
     // MARK: - Helper Methods
     private func switchMode(to mode: TimerMode) {
-        isRunning = false
-        timeRemaining = mode.duration
+        selectedMode = mode
+        resetTimer()
     }
     
     private func resetTimer() {

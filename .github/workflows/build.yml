@@ -1,0 +1,36 @@
+name: Build IPA
+
+on:
+  workflow_dispatch: # Allows manual trigger from the GitHub Actions tab
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode Version
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+
+      - name: Build App
+        run: |
+          xcodebuild -package-path . \
+            -scheme <YourAppName> \
+            -destination "generic/platform=iOS" \
+            -configuration Release \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package Unsigned IPA
+        run: |
+          mkdir -p build/Payload
+          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" | head -n 1)
+          cp -r "$APP_PATH" build/Payload/
+          cd build && zip -r <YourAppName>.ipa Payload/
+
+      - name: Upload IPA to Release Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-ipa
+          path: build/*.ipa

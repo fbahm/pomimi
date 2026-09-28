@@ -2,24 +2,36 @@ import SwiftUI
 import AudioToolbox
 import UIKit
 
+// MARK: - Models
+struct PomodoroTag: Identifiable, Equatable {
+    var id: UUID = UUID()
+    var name: String
+    var workMinutes: Int
+    var breakMinutes: Int
+}
+
 enum TimerMode: String, CaseIterable {
     case study = "study"
     case breakTime = "break"
-    
-    var duration: Int {
-        switch self {
-        case .study:
-            return 25 * 60
-        case .breakTime:
-            return 5 * 60
-        }
-    }
 }
 
+// Single default instance so the IDs match everywhere
+private let initialDefaultTag = PomodoroTag(name: "default", workMinutes: 25, breakMinutes: 5)
+
+// MARK: - Main View
 struct ContentView: View {
+    // Both share the exact same tag reference and UUID
+    @State private var tags: [PomodoroTag] = [initialDefaultTag]
+    @State private var selectedTag: PomodoroTag = initialDefaultTag
+    
+    // Timer state
     @State private var selectedMode: TimerMode = .study
-    @State private var timeRemaining: Int = TimerMode.study.duration
+    @State private var timeRemaining: Int = 25 * 60
     @State private var isRunning: Bool = false
+    
+    // Sheet presentations
+    @State private var showTagSelector: Bool = false
+    @State private var showAddTagSheet: Bool = false
     
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
@@ -31,20 +43,45 @@ struct ContentView: View {
         timeRemaining % 60
     }
     
+    var currentModeDuration: Int {
+        switch selectedMode {
+        case .study:
+            return selectedTag.workMinutes * 60
+        case .breakTime:
+            return selectedTag.breakMinutes * 60
+        }
+    }
+    
     var body: some View {
         ZStack {
-            // Main content centered vertically and horizontally
             VStack {
                 Spacer()
                 
-                // Center Stack: Timer, Controls, and Modes
-                VStack(spacing: 22) {
+                // Center Cluster
+                VStack(spacing: 16) {
+                    
+                    // Tag Selector Pill Button
+                    Button {
+                        showTagSelector = true
+                    } label: {
+                        Text(selectedTag.name)
+                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .foregroundColor(.primary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule()
+                                    .strokeBorder(Color.primary.opacity(0.3), lineWidth: 1.5)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    
                     // Countdown display
                     Text(String(format: "%02d:%02d", minutes, seconds))
                         .font(.system(size: 68, weight: .bold, design: .rounded))
                         .monospacedDigit()
                     
-                    // Controls: Play/Pause and Reset loop icon
+                    // Play/Pause & Reset Controls
                     HStack(spacing: 28) {
                         Button {
                             isRunning.toggle()
@@ -64,8 +101,9 @@ struct ContentView: View {
                         }
                         .buttonStyle(.plain)
                     }
+                    .padding(.top, 4)
                     
-                    // Modes list
+                    // Study / Break Mode List
                     VStack(spacing: 8) {
                         ForEach(TimerMode.allCases, id: \.self) { mode in
                             let isSelected = selectedMode == mode
@@ -88,19 +126,21 @@ struct ContentView: View {
                             .buttonStyle(.plain)
                         }
                     }
-                    .padding(.top, 10)
+                    .padding(.top, 8)
                 }
                 
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        // Top header title
         .overlay(alignment: .top) {
             Text("pomimi")
                 .font(.system(size: 26, weight: .medium, design: .rounded))
                 .foregroundColor(.primary)
                 .padding(.top, 8)
         }
+        // Timer countdown tick
         .onReceive(timer) { _ in
             guard isRunning else { return }
             
@@ -110,6 +150,34 @@ struct ContentView: View {
                 isRunning = false
                 triggerTimerCompletionFeedback()
             }
+        }
+        // Tag Menu pop-up sheet
+        .sheet(isPresented: $showTagSelector) {
+            TagSelectorSheet(
+                tags: tags,
+                selectedTag: $selectedTag,
+                onSelectTag: { tag in
+                    selectedTag = tag
+                    resetTimer()
+                    showTagSelector = false
+                },
+                onAddNewTagTapped: {
+                    showTagSelector = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        showAddTagSheet = true
+                    }
+                }
+            )
+            .presentationDetents([.medium])
+        }
+        // Add Tag Input sheet
+        .sheet(isPresented: $showAddTagSheet) {
+            AddTagSheet { newTag in
+                tags.append(newTag)
+                selectedTag = newTag
+                resetTimer()
+            }
+            .presentationDetents([.medium])
         }
     }
     
@@ -121,7 +189,7 @@ struct ContentView: View {
     
     private func resetTimer() {
         isRunning = false
-        timeRemaining = selectedMode.duration
+        timeRemaining = currentModeDuration
     }
     
     private func triggerTimerCompletionFeedback() {
@@ -130,5 +198,152 @@ struct ContentView: View {
         generator.notificationOccurred(.success)
         
         AudioServicesPlaySystemSound(1005)
+    }
+}
+
+// MARK: - Tag Selector Pop-Up
+struct TagSelectorSheet: View {
+    let tags: [PomodoroTag]
+    @Binding var selectedTag: PomodoroTag
+    let onSelectTag: (PomodoroTag) -> Void
+    let onAddNewTagTapped: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("tags")
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .padding(.top, 24)
+            
+            VStack(spacing: 12) {
+                ForEach(tags) { tag in
+                    let isSelected = selectedTag.id == tag.id
+                    
+                    Button {
+                        onSelectTag(tag)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(tag.name)
+                                .font(.system(size: 22, weight: isSelected ? .bold : .regular, design: .rounded))
+                                .italic(!isSelected)
+                            
+                            if isSelected {
+                                Text("•")
+                                    .font(.system(size: 20, weight: .bold))
+                            }
+                        }
+                        .foregroundColor(isSelected ? .primary : .secondary.opacity(0.55))
+                    }
+                    .buttonStyle(.plain)
+                }
+                
+                Button {
+                    onAddNewTagTapped()
+                } label: {
+                    Text("add tag :)")
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .italic()
+                        .foregroundColor(.secondary.opacity(0.65))
+                        .padding(.top, 8)
+                }
+                .buttonStyle(.plain)
+            }
+            
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal)
+    }
+}
+
+// MARK: - Add Tag Sheet
+struct AddTagSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var name: String = ""
+    @State private var workMinutesText: String = "25"
+    @State private var breakMinutesText: String = "5"
+    
+    let onSave: (PomodoroTag) -> Void
+    
+    var workMinutes: Int {
+        Int(workMinutesText) ?? 25
+    }
+    
+    var breakMinutes: Int {
+        Int(breakMinutesText) ?? 5
+    }
+    
+    var isValid: Bool {
+        !name.trimmingCharacters(in: .whitespaces).isEmpty && workMinutes > 0 && breakMinutes > 0
+    }
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                VStack(spacing: 16) {
+                    TextField("tag name (e.g. coding)", text: $name)
+                        .textFieldStyle(.roundedBorder)
+                    
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("work (mins)")
+                                .font(.system(size: 14, weight: .medium, design: .rounded))
+                                .foregroundColor(.secondary)
+                            TextField("25", text: $workMinutesText)
+                                .keyboardType(.numberPad)
+                                .textFieldStyle(.roundedBorder)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("break (mins)")
+                                .font(.system(size: 14, weight: .medium, design: .rounded))
+                                .foregroundColor(.secondary)
+                            TextField("5", text: $breakMinutesText)
+                                .keyboardType(.numberPad)
+                                .textFieldStyle(.roundedBorder)
+                        }
+                    }
+                }
+                .padding(.top, 16)
+                
+                VStack(spacing: 6) {
+                    Text("preview")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundColor(.secondary)
+                    
+                    Text("\(name.isEmpty ? "untitled" : name) • \(workMinutes)m work / \(breakMinutes)m break")
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundColor(.primary)
+                }
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(Color.secondary.opacity(0.1))
+                .cornerRadius(12)
+                
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+            .navigationTitle("New Tag")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        let newTag = PomodoroTag(
+                            name: name.trimmingCharacters(in: .whitespaces),
+                            workMinutes: workMinutes,
+                            breakMinutes: breakMinutes
+                        )
+                        onSave(newTag)
+                        dismiss()
+                    }
+                    .disabled(!isValid)
+                }
+            }
+        }
     }
 }

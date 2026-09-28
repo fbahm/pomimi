@@ -10,7 +10,7 @@ import AppleProductTypes
 let package = Package(
     name: "Pomimi",
     platforms: [
-        .iOS("26.0")
+        .iOS("16.0")
     ],
     products: [
         .iOSApplication(
@@ -21,8 +21,8 @@ let package = Package(
             appIcon: .placeholder(icon: .smiley),
             accentColor: .presetColor(.orange),
             supportedDeviceFamilies: [
-                .pad,
-                .phone
+                .phone,
+                .pad
             ],
             supportedInterfaceOrientations: [
                 .portrait,

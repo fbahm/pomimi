@@ -1,2 +1,6 @@
+# Swift Package Manager & Swift Playgrounds build artifacts
+.build/
+.swiftpm/xcode/
+DerivedData/
+*.xcuserstate
 .DS_Store
-.build

@@ -14,13 +14,13 @@ jobs:
 
       - name: Build App
         run: |
-          xcodebuild build \
-            -package-path "code/pomimi.swiftpm" \
-            -scheme "pomimi" \
+          cd code/pomimi.swiftpm
+          xcodebuild -scheme "Pomimi" \
             -destination "generic/platform=iOS" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=""
+            CODE_SIGN_IDENTITY="" \
+            build
 
       - name: Package Unsigned IPA
         run: |

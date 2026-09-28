@@ -25,7 +25,6 @@ jobs:
 
       - name: Package strict IPA
         run: |
-          # 1. Find the compiled app
           APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -type d -path "*/Build/Products/Release-iphoneos/*.app" | head -n 1)
           
           if [ -z "$APP_PATH" ]; then
@@ -35,15 +34,13 @@ jobs:
           
           echo "Found compiled app at: $APP_PATH"
           
-          # 2. Print what is actually inside the app to the GitHub logs for debugging
+          # Print bundle contents to GitHub logs for debugging
           echo "--- APP BUNDLE CONTENTS ---"
           ls -la "$APP_PATH"
           echo "---------------------------"
 
-          # 3. Get exact executable name
           EXEC_NAME=$(basename "$APP_PATH" .app)
           
-          # 4. Inject a strict Info.plist
           echo '<?xml version="1.0" encoding="UTF-8"?>' > "$APP_PATH/Info.plist"
           echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> "$APP_PATH/Info.plist"
           echo '<plist version="1.0"><dict>' >> "$APP_PATH/Info.plist"
@@ -57,15 +54,11 @@ jobs:
           echo '<key>MinimumOSVersion</key><string>16.0</string>' >> "$APP_PATH/Info.plist"
           echo '</dict></plist>' >> "$APP_PATH/Info.plist"
 
-          # 5. Use Python to create a mathematically perfect IPA structure (Payload/App.app)
           mkdir -p Payload
           cp -a "$APP_PATH" Payload/
           
-          python3 -c "
-import shutil
-# Creates Pomimi.zip (which we rename to .ipa) containing the Payload folder
-shutil.make_archive('Pomimi', 'zip', '.', 'Payload')
-"
+          # Safely use python on a single line without breaking YAML indentation
+          python3 -c "import shutil; shutil.make_archive('Pomimi', 'zip', '.', 'Payload')"
           mv Pomimi.zip Pomimi.ipa
 
       - name: Upload IPA Artifact

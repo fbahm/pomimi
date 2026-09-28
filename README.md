@@ -10,12 +10,10 @@ Pomimi comes from the sentiment that education should be free for all, even its 
 - The first version of Pomimi is **being made for the iOS** environment. Android, PC, and iPad ports are in *future plans*.
 ## Roadmap
 1. Functional Pomodoro function under basic UI [x]
-2. Creation of "tags" (maximum of 10) []
-	1. User can change how long the focus blocks are []
-	2. User can change how long the break blocks are []
-	3. User can change how many sessions to have []
-	4. User can change how long the session breaks are []
-	5. User can save this as different tags (up to 10 initially) [] 
+2. Creation of "tags" [x]
+	1. User can change how long the focus blocks are [x]
+	2. User can change how long the break blocks are [x]
+	5. User can save this as different tags [x] 
 3. Functional app introduction using placeholder assets []
 4. Creation of initial static sprites/assets []
 5. Implementation of sprites for Pomodoro []

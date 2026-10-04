@@ -3,6 +3,35 @@ import AudioToolbox
 import UIKit
 import UserNotifications
 
+// MARK: - Color Palette
+extension Color {
+    init(hex: UInt32) {
+        self.init(
+            red: Double((hex >> 16) & 0xFF) / 255,
+            green: Double((hex >> 8) & 0xFF) / 255,
+            blue: Double(hex & 0xFF) / 255
+        )
+    }
+}
+
+enum Palette {
+    static let red    = Color(hex: 0xD62839)  // accents: play button, selected dot, save
+    static let peach  = Color(hex: 0xFFDBB5)  // fills: tag pill, text fields, preview card
+    static let cream  = Color(hex: 0xFFF4E6)  // backgrounds
+    static let pink   = Color(hex: 0xE87A86)  // secondary: unselected items, reset, trash
+    static let maroon = Color(hex: 0x5C161D)  // primary text
+}
+
+private extension View {
+    func paletteField() -> some View {
+        self.padding(10)
+            .background(Palette.peach)
+            .cornerRadius(10)
+            .foregroundColor(Palette.maroon)
+            .tint(Palette.red)
+    }
+}
+
 // MARK: - Models
 struct PomodoroTag: Identifiable, Equatable {
     var id: UUID = UUID()
@@ -62,7 +91,7 @@ struct ContentView: View {
             // Header pinned cleanly below dynamic island / notch
             Text("pomimi")
                 .font(.system(size: 26, weight: .medium, design: .rounded))
-                .foregroundColor(.primary)
+                .foregroundColor(Palette.maroon)
                 .padding(.top, 16)
             
             Spacer()
@@ -76,13 +105,10 @@ struct ContentView: View {
                 } label: {
                     Text(selectedTag.name)
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
-                        .foregroundColor(.primary)
+                        .foregroundColor(Palette.maroon)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 6)
-                        .background(
-                            Capsule()
-                                .strokeBorder(Color.primary.opacity(0.25), lineWidth: 1.5)
-                        )
+                        .background(Capsule().fill(Palette.peach))
                 }
                 .buttonStyle(.plain)
                 
@@ -90,6 +116,7 @@ struct ContentView: View {
                 Text(String(format: "%02d:%02d", minutes, seconds))
                     .font(.system(size: 72, weight: .bold, design: .rounded))
                     .monospacedDigit()
+                    .foregroundColor(Palette.maroon)
                 
                 // Play/Pause & Reset Controls
                 HStack(spacing: 32) {
@@ -98,7 +125,7 @@ struct ContentView: View {
                     } label: {
                         Image(systemName: isRunning ? "pause.fill" : "play.fill")
                             .font(.system(size: 28))
-                            .foregroundColor(.primary)
+                            .foregroundColor(Palette.red)
                     }
                     .buttonStyle(.plain)
                     
@@ -107,7 +134,7 @@ struct ContentView: View {
                     } label: {
                         Image(systemName: "arrow.counterclockwise")
                             .font(.system(size: 24, weight: .medium))
-                            .foregroundColor(.primary.opacity(0.8))
+                            .foregroundColor(Palette.pink)
                     }
                     .buttonStyle(.plain)
                 }
@@ -125,13 +152,14 @@ struct ContentView: View {
                                 Text(mode.rawValue)
                                     .font(.system(size: 22, weight: isSelected ? .semibold : .regular, design: .rounded))
                                     .italic(!isSelected)
+                                    .foregroundColor(isSelected ? Palette.maroon : Palette.pink)
                                 
                                 if isSelected {
                                     Text("•")
                                         .font(.system(size: 18, weight: .bold))
+                                        .foregroundColor(Palette.red)
                                 }
                             }
-                            .foregroundColor(isSelected ? .primary : .secondary.opacity(0.55))
                         }
                         .buttonStyle(.plain)
                     }
@@ -142,6 +170,9 @@ struct ContentView: View {
             Spacer()
             Spacer()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Palette.cream.ignoresSafeArea())
+        .preferredColorScheme(.light)
         .onReceive(timer) { _ in
             guard isRunning else { return }
             
@@ -268,7 +299,7 @@ struct ContentView: View {
             .removePendingNotificationRequests(withIdentifiers: ["pomimiTimerComplete"])
         
         guard isRunning, let end = targetEndDate else { return }
-        targetEndDate = nil   // <- add this
+        targetEndDate = nil
         timeRemaining = max(0, Int(end.timeIntervalSinceNow))
         if timeRemaining == 0 { finishTimer() }
     }
@@ -287,6 +318,7 @@ struct TagSelectorSheet: View {
             Text("tags")
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .underline()
+                .foregroundColor(Palette.maroon)
                 .padding(.top, 24)
             
             VStack(spacing: 12) {
@@ -302,13 +334,14 @@ struct TagSelectorSheet: View {
                                 Text(tag.name)
                                     .font(.system(size: 22, weight: isSelected ? .bold : .regular, design: .rounded))
                                     .italic(!isSelected)
+                                    .foregroundColor(isSelected ? Palette.maroon : Palette.pink)
                                 
                                 if isSelected {
                                     Text("•")
                                         .font(.system(size: 20, weight: .bold))
+                                        .foregroundColor(Palette.red)
                                 }
                             }
-                            .foregroundColor(isSelected ? .primary : .secondary.opacity(0.55))
                         }
                         .buttonStyle(.plain)
                         
@@ -318,7 +351,7 @@ struct TagSelectorSheet: View {
                             } label: {
                                 Image(systemName: "trash")
                                     .font(.system(size: 14))
-                                    .foregroundColor(.secondary.opacity(0.4))
+                                    .foregroundColor(Palette.pink)
                             }
                             .buttonStyle(.plain)
                         }
@@ -331,7 +364,7 @@ struct TagSelectorSheet: View {
                     Text("add tag :)")
                         .font(.system(size: 20, weight: .bold, design: .rounded))
                         .italic()
-                        .foregroundColor(.secondary.opacity(0.65))
+                        .foregroundColor(Palette.red)
                         .padding(.top, 8)
                 }
                 .buttonStyle(.plain)
@@ -341,6 +374,7 @@ struct TagSelectorSheet: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal)
+        .background(Palette.cream.ignoresSafeArea())
     }
 }
 
@@ -373,12 +407,13 @@ struct AddTagSheet: View {
                 Button("Cancel") {
                     dismiss()
                 }
-                .foregroundColor(.secondary)
+                .foregroundColor(Palette.maroon.opacity(0.6))
                 
                 Spacer()
                 
                 Text("New Tag")
                     .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundColor(Palette.maroon)
                 
                 Spacer()
                 
@@ -392,6 +427,7 @@ struct AddTagSheet: View {
                     dismiss()
                 }
                 .fontWeight(.bold)
+                .foregroundColor(isValid ? Palette.red : Palette.pink.opacity(0.5))
                 .disabled(!isValid)
             }
             .padding(.horizontal, 20)
@@ -401,26 +437,26 @@ struct AddTagSheet: View {
             ScrollView {
                 VStack(spacing: 20) {
                     TextField("tag name (e.g. coding)", text: $name)
-                        .textFieldStyle(.roundedBorder)
+                        .paletteField()
                         .padding(.top, 8)
                     
                     HStack(spacing: 16) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("work (mins)")
                                 .font(.system(size: 14, weight: .medium, design: .rounded))
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Palette.maroon.opacity(0.7))
                             TextField("25", text: $workMinutesText)
                                 .keyboardType(.numberPad)
-                                .textFieldStyle(.roundedBorder)
+                                .paletteField()
                         }
                         
                         VStack(alignment: .leading, spacing: 4) {
                             Text("break (mins)")
                                 .font(.system(size: 14, weight: .medium, design: .rounded))
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Palette.maroon.opacity(0.7))
                             TextField("5", text: $breakMinutesText)
                                 .keyboardType(.numberPad)
-                                .textFieldStyle(.roundedBorder)
+                                .paletteField()
                         }
                     }
                     
@@ -428,19 +464,20 @@ struct AddTagSheet: View {
                     VStack(spacing: 6) {
                         Text("preview")
                             .font(.system(size: 13, weight: .semibold, design: .rounded))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Palette.maroon.opacity(0.7))
                         
                         Text("\(name.isEmpty ? "untitled" : name) • \(workMinutes)m work / \(breakMinutes)m break")
                             .font(.system(size: 16, weight: .medium, design: .rounded))
-                            .foregroundColor(.primary)
+                            .foregroundColor(Palette.maroon)
                     }
                     .padding()
                     .frame(maxWidth: .infinity)
-                    .background(Color.secondary.opacity(0.08))
+                    .background(Palette.peach)
                     .cornerRadius(12)
                 }
                 .padding(.horizontal, 20)
             }
         }
+        .background(Palette.cream.ignoresSafeArea())
     }
 }

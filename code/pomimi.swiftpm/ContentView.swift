@@ -58,96 +58,89 @@ struct ContentView: View {
     }
     
     var body: some View {
-        ZStack {
-            // Full screen background matching system color
-            Color(uiColor: .systemBackground)
-                .ignoresSafeArea()
+        VStack {
+            // Header pinned cleanly below dynamic island / notch
+            Text("pomimi")
+                .font(.system(size: 26, weight: .medium, design: .rounded))
+                .foregroundColor(.primary)
+                .padding(.top, 16)
             
-            VStack {
-                // Header pinned cleanly below dynamic island / notch
-                Text("pomimi")
-                    .font(.system(size: 26, weight: .medium, design: .rounded))
-                    .foregroundColor(.primary)
-                    .padding(.top, 16)
+            Spacer()
+            
+            // Center Cluster
+            VStack(spacing: 18) {
                 
-                Spacer()
+                // Tag Selector Pill Button
+                Button {
+                    showTagSelector = true
+                } label: {
+                    Text(selectedTag.name)
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .strokeBorder(Color.primary.opacity(0.25), lineWidth: 1.5)
+                        )
+                }
+                .buttonStyle(.plain)
                 
-                // Center Cluster
-                VStack(spacing: 18) {
-                    
-                    // Tag Selector Pill Button
+                // Countdown display
+                Text(String(format: "%02d:%02d", minutes, seconds))
+                    .font(.system(size: 72, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                
+                // Play/Pause & Reset Controls
+                HStack(spacing: 32) {
                     Button {
-                        showTagSelector = true
+                        isRunning.toggle()
                     } label: {
-                        Text(selectedTag.name)
-                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        Image(systemName: isRunning ? "pause.fill" : "play.fill")
+                            .font(.system(size: 28))
                             .foregroundColor(.primary)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule()
-                                    .strokeBorder(Color.primary.opacity(0.25), lineWidth: 1.5)
-                            )
                     }
                     .buttonStyle(.plain)
                     
-                    // Countdown display
-                    Text(String(format: "%02d:%02d", minutes, seconds))
-                        .font(.system(size: 72, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                    
-                    // Play/Pause & Reset Controls
-                    HStack(spacing: 32) {
-                        Button {
-                            isRunning.toggle()
-                        } label: {
-                            Image(systemName: isRunning ? "pause.fill" : "play.fill")
-                                .font(.system(size: 28))
-                                .foregroundColor(.primary)
-                        }
-                        .buttonStyle(.plain)
+                    Button {
+                        resetTimer()
+                    } label: {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.system(size: 24, weight: .medium))
+                            .foregroundColor(.primary.opacity(0.8))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 6)
+                
+                // Study / Break Mode List
+                VStack(spacing: 8) {
+                    ForEach(TimerMode.allCases, id: \.self) { mode in
+                        let isSelected = selectedMode == mode
                         
                         Button {
-                            resetTimer()
+                            switchMode(to: mode)
                         } label: {
-                            Image(systemName: "arrow.counterclockwise")
-                                .font(.system(size: 24, weight: .medium))
-                                .foregroundColor(.primary.opacity(0.8))
+                            HStack(spacing: 4) {
+                                Text(mode.rawValue)
+                                    .font(.system(size: 22, weight: isSelected ? .semibold : .regular, design: .rounded))
+                                    .italic(!isSelected)
+                                
+                                if isSelected {
+                                    Text("•")
+                                        .font(.system(size: 18, weight: .bold))
+                                }
+                            }
+                            .foregroundColor(isSelected ? .primary : .secondary.opacity(0.55))
                         }
                         .buttonStyle(.plain)
                     }
-                    .padding(.top, 6)
-                    
-                    // Study / Break Mode List
-                    VStack(spacing: 8) {
-                        ForEach(TimerMode.allCases, id: \.self) { mode in
-                            let isSelected = selectedMode == mode
-                            
-                            Button {
-                                switchMode(to: mode)
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Text(mode.rawValue)
-                                        .font(.system(size: 22, weight: isSelected ? .semibold : .regular, design: .rounded))
-                                        .italic(!isSelected)
-                                    
-                                    if isSelected {
-                                        Text("•")
-                                            .font(.system(size: 18, weight: .bold))
-                                    }
-                                }
-                                .foregroundColor(isSelected ? .primary : .secondary.opacity(0.55))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.top, 10)
                 }
-                
-                Spacer()
-                Spacer()
+                .padding(.top, 10)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+            Spacer()
+            Spacer()
         }
         .onReceive(timer) { _ in
             guard isRunning else { return }
@@ -155,8 +148,7 @@ struct ContentView: View {
             if timeRemaining > 0 {
                 timeRemaining -= 1
             } else {
-                isRunning = false
-                triggerTimerCompletionFeedback()
+                finishTimer()
             }
         }
         .onAppear {
@@ -173,15 +165,13 @@ struct ContentView: View {
         .sheet(isPresented: $showTagSelector) {
             TagSelectorSheet(
                 tags: tags,
-                selectedTag: $selectedTag,
+                selectedID: selectedTag.id,
                 onSelectTag: { tag in
                     selectedTag = tag
                     resetTimer()
                     showTagSelector = false
                 },
-                onDeleteTag: { tagToDelete in
-                    deleteTag(tagToDelete)
-                },
+                onDeleteTag: deleteTag,
                 onAddNewTagTapped: {
                     showTagSelector = false
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
@@ -226,11 +216,9 @@ struct ContentView: View {
         }
     }
     
-    private func triggerTimerCompletionFeedback() {
-        let generator = UINotificationFeedbackGenerator()
-        generator.prepare()
-        generator.notificationOccurred(.success)
-        
+    private func finishTimer() {
+        isRunning = false
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
         AudioServicesPlaySystemSound(1005)
     }
     
@@ -245,7 +233,7 @@ struct ContentView: View {
         }
     }
     
-    private func scheduleTimerNotification(durationInSeconds: TimeInterval, title: String, body: String){
+    private func scheduleTimerNotification(durationInSeconds: TimeInterval, title: String, body: String) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
@@ -257,43 +245,38 @@ struct ContentView: View {
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
                 print("Error scheduling notification: \(error)")
-            }    
+            }
         }
     }
     
     private func appMovedToBackground() {
-        if isRunning {
-            let timeInterval = TimeInterval(timeRemaining)
-            targetEndDate = Date().addingTimeInterval(timeInterval)
-            UserDefaults.standard.set(targetEndDate, forKey: "TargetEndDate")
-            
-            scheduleTimerNotification(durationInSeconds: timeInterval,
-                                      title: "Pomodoro Finished!",
-                                      body: "Take a break :)")
-        }
+        guard isRunning else { return }
+        
+        let interval = TimeInterval(timeRemaining)
+        targetEndDate = Date().addingTimeInterval(interval)
+        
+        let isStudying = selectedMode == .study
+        scheduleTimerNotification(
+            durationInSeconds: interval,
+            title: isStudying ? "Pomodoro Finished!" : "Break Over!",
+            body: isStudying ? "Take a break :)" : "Time to get back to work :)"
+        )
     }
     
     private func appMovedToForeground() {
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["pomimiTimerComplete"])
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: ["pomimiTimerComplete"])
         
-        if isRunning, let savedEndDate = UserDefaults.standard.object(forKey: "TargetEndDate") as? Date {
-            let currentTime = Date()
-            
-            if currentTime >= savedEndDate {
-                timeRemaining = 0
-                isRunning = false
-                triggerTimerCompletionFeedback()
-            } else {
-                timeRemaining = Int(savedEndDate.timeIntervalSince(currentTime))
-            }
-        }
+        guard isRunning, let end = targetEndDate else { return }
+        timeRemaining = max(0, Int(end.timeIntervalSinceNow))
+        if timeRemaining == 0 { finishTimer() }
     }
 }
 
 // MARK: - Tag Selector Pop-Up Sheet
 struct TagSelectorSheet: View {
     let tags: [PomodoroTag]
-    @Binding var selectedTag: PomodoroTag
+    let selectedID: UUID
     let onSelectTag: (PomodoroTag) -> Void
     let onDeleteTag: (PomodoroTag) -> Void
     let onAddNewTagTapped: () -> Void
@@ -307,7 +290,7 @@ struct TagSelectorSheet: View {
             
             VStack(spacing: 12) {
                 ForEach(tags) { tag in
-                    let isSelected = selectedTag.id == tag.id
+                    let isSelected = selectedID == tag.id
                     let isDefault = tag.name == "default"
                     
                     HStack(spacing: 10) {

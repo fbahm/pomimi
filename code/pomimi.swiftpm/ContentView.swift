@@ -268,6 +268,7 @@ struct ContentView: View {
             .removePendingNotificationRequests(withIdentifiers: ["pomimiTimerComplete"])
         
         guard isRunning, let end = targetEndDate else { return }
+        targetEndDate = nil   // <- add this
         timeRemaining = max(0, Int(end.timeIntervalSinceNow))
         if timeRemaining == 0 { finishTimer() }
     }

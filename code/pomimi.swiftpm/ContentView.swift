@@ -1,6 +1,7 @@
 import SwiftUI
 import AudioToolbox
 import UIKit
+import UserNotifications
 
 // MARK: - Models
 struct PomodoroTag: Identifiable, Equatable {
@@ -19,6 +20,9 @@ private let initialDefaultTag = PomodoroTag(name: "default", workMinutes: 25, br
 
 // MARK: - Main View
 struct ContentView: View {
+    
+    @Environment(\.scenePhase) var scenePhase
+    
     @State private var tags: [PomodoroTag] = [initialDefaultTag]
     @State private var selectedTag: PomodoroTag = initialDefaultTag
     
@@ -26,6 +30,9 @@ struct ContentView: View {
     @State private var selectedMode: TimerMode = .study
     @State private var timeRemaining: Int = 25 * 60
     @State private var isRunning: Bool = false
+    
+    // Background tracking state
+    @State private var targetEndDate: Date?
     
     // Presentation states
     @State private var showTagSelector: Bool = false
@@ -152,6 +159,16 @@ struct ContentView: View {
                 triggerTimerCompletionFeedback()
             }
         }
+        .onAppear {
+            requestNotificationPermission()
+        }
+        .onChange(of: scenePhase) { newPhase in
+            if newPhase == .background {
+                appMovedToBackground()
+            } else if newPhase == .active {
+                appMovedToForeground()
+            }
+        }
         // Tag selector sheet
         .sheet(isPresented: $showTagSelector) {
             TagSelectorSheet(
@@ -174,7 +191,7 @@ struct ContentView: View {
             )
             .presentationDetents([.medium])
         }
-        // Add tag input sheet (expands up to .large when typing)
+        // Add tag input sheet
         .sheet(isPresented: $showAddTagSheet) {
             AddTagSheet { newTag in
                 tags.append(newTag)
@@ -215,6 +232,61 @@ struct ContentView: View {
         generator.notificationOccurred(.success)
         
         AudioServicesPlaySystemSound(1005)
+    }
+    
+    // MARK: - Background Processing Methods
+    private func requestNotificationPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in
+            if granted {
+                print("Notification permission granted.")
+            } else if let error = error {
+                print("Notification error: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    private func scheduleTimerNotification(durationInSeconds: TimeInterval, title: String, body: String){
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: durationInSeconds, repeats: false)
+        let request = UNNotificationRequest(identifier: "pomimiTimerComplete", content: content, trigger: trigger)
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Error scheduling notification: \(error)")
+            }    
+        }
+    }
+    
+    private func appMovedToBackground() {
+        if isRunning {
+            let timeInterval = TimeInterval(timeRemaining)
+            targetEndDate = Date().addingTimeInterval(timeInterval)
+            UserDefaults.standard.set(targetEndDate, forKey: "TargetEndDate")
+            
+            scheduleTimerNotification(durationInSeconds: timeInterval,
+                                      title: "Pomodoro Finished!",
+                                      body: "Take a break :)")
+        }
+    }
+    
+    private func appMovedToForeground() {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["pomimiTimerComplete"])
+        
+        if isRunning, let savedEndDate = UserDefaults.standard.object(forKey: "TargetEndDate") as? Date {
+            let currentTime = Date()
+            
+            if currentTime >= savedEndDate {
+                timeRemaining = 0
+                isRunning = false
+                triggerTimerCompletionFeedback()
+            } else {
+                timeRemaining = Int(savedEndDate.timeIntervalSince(currentTime))
+            }
+        }
     }
 }
 
@@ -388,4 +460,3 @@ struct AddTagSheet: View {
         }
     }
 }
-
